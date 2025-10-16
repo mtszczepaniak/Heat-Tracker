@@ -28,13 +28,14 @@ def load_config():
 
 def save_config():
     config = {
-        'prev_season_total': st.session_state.get('prev_season_total', 0.0),
-        'season_start': st.session_state.get('season_start', str(date.today())),
-        'season_end': st.session_state.get('season_end', str(date.today())),
-        'areas': st.session_state.get('areas', ['Room 1', 'Room 2', 'Room 3'])
+        'prev_season_total': float(st.session_state.get('prev_season_total', 0.0)),
+        'season_start': str(st.session_state.get('season_start', date.today())),
+        'season_end': str(st.session_state.get('season_end', date.today())),
+        'areas': [str(a) for a in st.session_state.get('areas', ['Room 1', 'Room 2', 'Room 3'])]
     }
     with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
+
 
 
 def init_session_state():
@@ -263,7 +264,7 @@ else:
     st.metric('Prognoza na koniec sezonu (suma)', f"{round(total_forecast,3)}")
     st.write('Wartość wyjściowa z poprzedniego okresu (podana):', st.session_state.prev_season_total)
 
-    st.subheader('Wykres zużycia (skumulowane)')
+    st.subheader('Wykres zużycia vs poprzedni okres (skumulowane)')
     plt.figure(figsize=(10,5))
     ax = plt.gca()
     for area, g in df.groupby('area'):
@@ -287,6 +288,28 @@ else:
     ax.legend()
     ax.grid(False)
     st.pyplot(plt)
+
+st.subheader('Wykres zużycia')
+fig, ax = plt.subplots(figsize=(10, 5))
+
+for area, g in df.groupby('area'):
+    g = g.sort_values('date')
+    before = g[g['date'] <= season_start]
+    if not before.empty:
+        baseline = before.iloc[-1]['value']
+    else:
+        baseline = g.iloc[0]['value']
+    dates = pd.to_datetime(g['date'])
+    values = g['value'] - baseline
+    if len(dates) > 0:
+        ax.plot(dates, values, label=area)
+
+ax.set_xlabel('Data')
+ax.set_ylabel('Skumulowane zużycie (jednostki)')
+ax.legend()
+ax.grid(False)
+
+st.pyplot(fig)
 
 st.markdown('\n---\n')
 st.caption('Dane zapisywane są automatycznie do plików: odczyty → data.csv, konfiguracja → config.json. Ustawienia sezonu, obszary i wartość poprzedniego sezonu są zapamiętywane. Prosta prognoza liniowa: prognoza = zużycie + średnie dzienne * dni do końca sezonu.')

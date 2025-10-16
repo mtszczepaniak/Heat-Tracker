@@ -1,3 +1,10 @@
 {
-  "prev_season_total": 5058.0,
-  "season_start": 
+  "prev_season_total": 5048.0,
+  "season_start": "2025-10-01",
+  "season_end": "2026-04-30",
+  "areas": [
+    "Pokój",
+    "Kuchnia",
+    "Biuro"
+  ]
+}
