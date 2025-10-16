@@ -1,5 +1,5 @@
 # streamlit_heat_tracker.py
-# Streamlit app to track and forecast heating consumption with persistent local CSV and config.json storage
+# Streamlit app to track and forecast heating consumption with persistent local CSV and full config.json storage
 
 import streamlit as st
 import pandas as pd
@@ -21,20 +21,28 @@ def load_config():
             with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception:
-            return {'prev_season_total': 0.0}
+            return {}
     else:
-        return {'prev_season_total': 0.0}
+        return {}
 
 
-def save_config(config):
+def save_config():
+    config = {
+        'prev_season_total': st.session_state.get('prev_season_total', 0.0),
+        'season_start': st.session_state.get('season_start', str(date.today())),
+        'season_end': st.session_state.get('season_end', str(date.today())),
+        'areas': st.session_state.get('areas', ['Room 1', 'Room 2', 'Room 3'])
+    }
     with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
 
 def init_session_state():
     config = load_config()
+
     if 'areas' not in st.session_state:
-        st.session_state.areas = ['Room 1', 'Room 2', 'Room 3']
+        st.session_state.areas = config.get('areas', ['Room 1', 'Room 2', 'Room 3'])
+
     if 'readings' not in st.session_state:
         if os.path.exists(DATA_FILE):
             try:
@@ -46,8 +54,21 @@ def init_session_state():
                 st.warning(f'Nie udało się wczytać danych: {e}')
         else:
             st.session_state.readings = []
+
     if 'prev_season_total' not in st.session_state:
         st.session_state.prev_season_total = config.get('prev_season_total', 0.0)
+
+    if 'season_start' not in st.session_state:
+        try:
+            st.session_state.season_start = date.fromisoformat(config.get('season_start'))
+        except Exception:
+            st.session_state.season_start = date(date.today().year, 10, 1)
+
+    if 'season_end' not in st.session_state:
+        try:
+            st.session_state.season_end = date.fromisoformat(config.get('season_end'))
+        except Exception:
+            st.session_state.season_end = date(date.today().year + 1, 4, 30)
 
 
 def save_data_to_file():
@@ -69,6 +90,7 @@ def add_area(name):
     name = name.strip()
     if name and name not in st.session_state.areas:
         st.session_state.areas.append(name)
+        save_config()
 
 
 def remove_area(name):
@@ -76,6 +98,7 @@ def remove_area(name):
         st.session_state.areas.remove(name)
         st.session_state.readings = [r for r in st.session_state.readings if r['area'] != name]
         save_data_to_file()
+        save_config()
         st.success(f'Usunięto obszar: {name}')
 
 
@@ -153,13 +176,19 @@ st.title('Śledzenie i prognoza zużycia ciepła')
 # Sidebar
 with st.sidebar:
     st.header('Ustawienia sezonu')
-    season_start = st.date_input('Początek sezonu grzewczego', value=date(date.today().year, 10, 1))
-    season_end = st.date_input('Koniec sezonu grzewczego', value=date(date.today().year + 1, 4, 30))
+
+    season_start = st.date_input('Początek sezonu grzewczego', value=st.session_state.season_start)
+    season_end = st.date_input('Koniec sezonu grzewczego', value=st.session_state.season_end)
+
+    if (season_start != st.session_state.season_start) or (season_end != st.session_state.season_end):
+        st.session_state.season_start = season_start
+        st.session_state.season_end = season_end
+        save_config()
 
     prev_season_total = st.number_input('Wartość wyjściowa (całkowita) z poprzedniego okresu', value=st.session_state.prev_season_total, step=0.1)
     if prev_season_total != st.session_state.prev_season_total:
         st.session_state.prev_season_total = prev_season_total
-        save_config({'prev_season_total': prev_season_total})
+        save_config()
 
     st.markdown('---')
     st.header('Obszary (pomieszczenia)')
@@ -256,8 +285,8 @@ else:
     ax.set_xlabel('Data')
     ax.set_ylabel('Skumulowane zużycie (jednostki)')
     ax.legend()
-    ax.grid(True)
+    ax.grid(False)
     st.pyplot(plt)
 
 st.markdown('\n---\n')
-st.caption('Dane zapisywane są automatycznie do plików: odczyty → data.csv, konfiguracja → config.json. Prosta prognoza liniowa: prognoza = zużycie + średnie dzienne * dni do końca sezonu.')
+st.caption('Dane zapisywane są automatycznie do plików: odczyty → data.csv, konfiguracja → config.json. Ustawienia sezonu, obszary i wartość poprzedniego sezonu są zapamiętywane. Prosta prognoza liniowa: prognoza = zużycie + średnie dzienne * dni do końca sezonu.')
