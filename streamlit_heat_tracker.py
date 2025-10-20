@@ -312,4 +312,4 @@ ax.grid(False)
 st.pyplot(fig)
 
 st.markdown('\n---\n')
-st.caption('Dane zapisywane są automatycznie do plików: odczyty → data.csv, konfiguracja → config.json. Ustawienia sezonu, obszary i wartość poprzedniego sezonu są zapamiętywane. Prosta prognoza liniowa: prognoza = zużycie + średnie dzienne * dni do końca sezonu.')
+st.caption('Ustawienia sezonu, obszary i wartość poprzedniego sezonu są zapamiętywane. Prosta prognoza liniowa.')
